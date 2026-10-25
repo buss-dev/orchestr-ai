@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: orchestr-ai-postgres
+    environment:
+      POSTGRES_USER: camunda
+      POSTGRES_PASSWORD: camunda_password
+      POSTGRES_DB: camunda_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - camunda-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U camunda -d camunda_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  camunda:
+    image: camunda/camunda:8.10.6
+    container_name: orchestr-ai-camunda
+    depends_on:
+      postgres:
+        condition: service_healthy
+    configs:
+      - source: orchestration-config
+        target: /usr/local/camunda/config/application.yaml
+    ports:
+      - "8080:8080"
+      - "26500:26500"
+      - "9600:9600"
+    volumes:
+      - camunda_data:/usr/local/zeebe/data
+    networks:
+      - camunda-net
+
+networks:
+  camunda-net:
+    driver: bridge
+
+volumes:
+  camunda_data:
+  postgres_data:
+
+configs:
+  orchestration-config:
+    file: ./configuration/${ORCHESTRATION_CONFIG_FILE:-application-postgres.yaml}
+
